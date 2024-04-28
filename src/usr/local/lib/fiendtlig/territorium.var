@@ -1,0 +1,23 @@
+## This file is sourced by the script. It is intended as a developers file.
+#+ I use the variables within for short hand and modulation.
+
+## IPv4 variables
+ipv4="$( command -v iptables )"
+raw4=${ipv4}' -t raw'
+man4=${ipv4}' -t mangle'
+nat4=${ipv4}' -t nat'
+sec4=${ipv4}' -t security'
+
+## IPv6 variables
+ipv6="$( command -v ip6tables )"
+raw6=${ipv6}' -t raw'
+man6=${ipv6}' -t mangle'
+nat6=${ipv6}' -t nat'
+sec6=${ipv6}' -t security'
+
+## Key files and directories
+inc_dir="${script_root}/include/fiendtlig"
+role_dir="${inc_dir}/roles.d"
+lib_dir="${script_root}/lib/fiendtlig"
+core4_ff="${lib_dir}/core.ipv4"
+core6_ff="${lib_dir}/core.ipv6"

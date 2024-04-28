@@ -1,0 +1,5 @@
+#! /bin/bash --
+
+## Define
+script_root=${script_root:-/usr/local}
+var_file="${script_root}/lib/fiendtlig/territorium.var"
