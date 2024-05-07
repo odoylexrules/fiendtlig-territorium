@@ -61,10 +61,10 @@ core_rules6() {
   ${man6} -A mangle-iTCP6 -p tcp --tcp-flags RST RST -j DROP
 
   # filter
-  ${ipv6} -N iLAD4
-  ${ipv6} -A iLAD4 -m limit --limit 10/min \
+  ${ipv6} -N iLAD6
+  ${ipv6} -A iLAD6 -m limit --limit 10/min \
    -j LOG --log-prefix "ip6tables INPUT deny: " --log-level 7
-  ${ipv6} -A iLAD4 -j DROP
+  ${ipv6} -A iLAD6 -j DROP
 #  ${ipv6} -N iLAR4  ## TODO: I need to reason out abusive signatures for drop
 
   # 'iTCP6'
