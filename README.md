@@ -32,9 +32,9 @@ support timers.
     - include/fiendtlig/<br>Bash function definitions are found within roll indicitive names.
       - core.ipv4<br>Primary function file to assemble a bare bones system
       - core.ipv6<br>Same as core.ipv4, just IPv6
-      - debian.ipv?<br>Functions for debian maintenance. Other OSes will be clearly labeled.
-      - sshd.ipv?<br>Protocol/server specific.
-      - httpd.ipv?
+      - roles.d/
+        - sshd.ipv?<br>Protocol/server specific.
+        - httpd.ipv?
     - lib/fiendtlig
       - territorium.var<br>Variables for any/all scripts for short hand, and for flexibility.
     - sbin/
