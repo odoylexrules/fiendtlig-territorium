@@ -89,7 +89,6 @@ core_rules6() {
   ## 'INPUT'
   # -- filter, mangle, security
   ${ipv6} -A INPUT -m conntrack --ctstate ESTABLISHED -j ACCEPT
-  ${ipv6} -A INPUT -p ipv6-icmp -j ACCEPT
   ${ipv6} -A INPUT -p tcp -m conntrack --ctstate NEW \
    -m limit --limit 60/s --limit-burst 20 -j iTCP6
   ${ipv6} -A INPUT -p udp -m conntrack --ctstate NEW -j iUDP6
