@@ -37,5 +37,5 @@ core_rules6
 
 # execute functions for services filters
 for funct in $( compgen -A function | grep fiendtlig_ ); do
-  ${funct}
+  [ ! -z ${funct} ] && ${funct} || exit 0
 done

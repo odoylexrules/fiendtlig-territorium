@@ -1,7 +1,5 @@
 function fiendtlig_sshd4() {
 
-    service_unit='ssh.service'
-    systemctl status ${service_unit} &> /dev/null || return
     local sshd_conf="${sshd_conf:-/etc/ssh/sshd_config}"
     local sshd_port="$( grep ^Port ${sshd_conf} | awk '{print $2}' )"
     local sshd_port="${sshd_port:-22}"
