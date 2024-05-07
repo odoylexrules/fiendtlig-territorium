@@ -1,0 +1,18 @@
+function fiendtlig_sshd4() {
+
+    service_unit='ssh.service'
+    systemctl status ${service_unit} &> /dev/null || return
+    local sshd_conf="${sshd_conf:-/etc/ssh/sshd_config}"
+    local sshd_port="$( grep ^Port ${sshd_conf} | awk '{print $2}' )"
+    local sshd_port="${sshd_port:-22}"
+
+    ${ipv4} -N iSSH4
+    ${ipv4} -A iSSH4 -m recent --name sshbf4 --rttl --rcheck --hitcount 3 \
+     --seconds 10 -j iLAD4
+    ${ipv4} -A iSSH4 -m recent --name sshbf4 --rttl --rcheck --hitcount 4 \
+     --seconds 1800 -j iLAD4
+    ${ipv4} -A iSSH4 -m recent --name sshbf4 --set -j ACCEPT
+
+    ${ipv4} -A iTCP4 -p tcp --dport ${sshd_port} -j iSSH4
+
+}

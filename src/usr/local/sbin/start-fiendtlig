@@ -1,5 +1,43 @@
 #! /bin/bash --
 
+
+# Usage:
+#+  It's possible
 ## Define
 script_root=${script_root:-/usr/local}
 var_file="${script_root}/lib/fiendtlig/territorium.var"
+etc_file="${script_root}/etc/fiendtlig-territorium.conf"
+lib_dir="${script_root}/lib/fiendtlig"
+inc_dir"${script_root}/include/fiendtlig"
+roles_dir="${inc_dir}/roles.d"
+
+core4="${inc_dir}/core.ipv4"
+core6="${inc_dir}/core.ipv6"
+
+# Source developer variables
+source ${var_file}
+
+# Source local admin variables
+source ${etc_file}
+
+# Source core functions
+source ${core4}
+source ${core6}
+
+# Source role functions
+for ff_file in ${roles_dir}/*; do
+  source ${ff_file}
+done
+
+# Flush and reset policies
+flush_rules4
+flush_rules6
+
+# Seat core fiendtlig rules
+core_rules4
+core_rules6
+
+# execute functions for services filters
+for funct in $( compgen -A function | grep fiendtlig_ ); do
+  ${funct}
+done

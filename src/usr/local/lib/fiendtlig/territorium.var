@@ -1,6 +1,11 @@
 ## This file is sourced by the script. It is intended as a developers file.
 #+ I use the variables within for short hand and modulation.
 
+# Unset all defined functions. Just an act of caution.
+for funct in $( compgen -A function ); do
+    unset -f "${funct}"
+done
+
 ## IPv4 variables
 ipv4="$( command -v iptables )"
 raw4=${ipv4}' -t raw'
