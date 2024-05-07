@@ -1,4 +1,4 @@
-flush_rules4() {
+flush_rules6() {
 
   # Not assuming a given state. Flushing all rules and configuring a
   # default posture of accept all with no rules.
@@ -31,7 +31,7 @@ flush_rules4() {
 
 }
 
-core_rules4() {
+core_rules6() {
 
   ## To kick start developement. I'm going to only filter outbound traffic,
   #+ and permit input that is established. Or defined as acceptable
@@ -40,6 +40,8 @@ core_rules4() {
   ${ipv6} -P OUTPUT ACCEPT
 
   ${ipv6} -A INPUT -i lo -j ACCEPT
+  ${ipv6} -A INPUT -s fe80::/10 -p ipv6-icmp -j ACCEPT
+  ${ipv6} -A INPUT -p udp --sport 547 --dport 546 -j ACCEPT
 
   ## fiendtlig-territorium defined chains
 
@@ -61,7 +63,7 @@ core_rules4() {
   # filter
   ${ipv6} -N iLAD4
   ${ipv6} -A iLAD4 -m limit --limit 10/min \
-   -j LOG --log-prefix "iptables INPUT deny: " --log-level 7
+   -j LOG --log-prefix "ip6tables INPUT deny: " --log-level 7
   ${ipv6} -A iLAD4 -j DROP
 #  ${ipv6} -N iLAR4  ## TODO: I need to reason out abusive signatures for drop
 
@@ -75,7 +77,7 @@ core_rules4() {
   # 'iUDP6'
   ${ipv6} -N iUDP6
   ${ipv6} -A iUDP6 -p udp -m recent --update --rsource --seconds 60 \
-   --name UDP6-PSCAN -j REJECT --reject-with ipv6-icmp-port-unreachable
+   --name UDP6-PSCAN -j REJECT  ## TODO: a reasonable reject?
 
   ## 'PREROUTING'
   # -- raw, nat, mangle
@@ -92,7 +94,7 @@ core_rules4() {
    -m limit --limit 60/s --limit-burst 20 -j iTCP6
   ${ipv6} -A INPUT -p udp -m conntrack --ctstate NEW -j iUDP6
   ${ipv6} -A INPUT -p tcp -m recent --set --rsource --name TCP6-PSCAN \
-   -j REJECT
+   -j REJECT --reject-with tcp-reset
   ${ipv6} -A INPUT -p udp -m recent --set --rsource --name UDP6-PSCAN \
    -j REJECT
   ${ipv6} -A INPUT -j REJECT
