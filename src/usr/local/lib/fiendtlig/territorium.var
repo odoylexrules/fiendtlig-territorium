@@ -24,5 +24,6 @@ sec6=${ipv6}' -t security'
 inc_dir="${script_root}/include/fiendtlig"
 role_dir="${inc_dir}/roles.d"
 lib_dir="${script_root}/lib/fiendtlig"
+etc_dir="${script_root}/etc"
 core4_ff="${lib_dir}/core.ipv4"
 core6_ff="${lib_dir}/core.ipv6"

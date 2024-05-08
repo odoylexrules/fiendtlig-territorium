@@ -4,13 +4,6 @@
 ## Define
 script_root=${script_root:-/usr/local}
 var_file="${script_root}/lib/fiendtlig/territorium.var"
-etc_file="${script_root}/etc/fiendtlig-territorium.conf"
-lib_dir="${script_root}/lib/fiendtlig"
-inc_dir="${script_root}/include/fiendtlig"
-roles_dir="${inc_dir}/roles.d"
-
-core4="${inc_dir}/core.ipv4"
-core6="${inc_dir}/core.ipv6"
 
 # Source developer variables
 source ${var_file}
@@ -19,6 +12,8 @@ source ${var_file}
 source ${etc_file}
 
 # Source core functions
+core4="${inc_dir}/core.ipv4"
+core6="${inc_dir}/core.ipv6"
 source ${core4}
 source ${core6}
 
