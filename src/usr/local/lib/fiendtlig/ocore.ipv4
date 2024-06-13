@@ -1,0 +1,50 @@
+ocore_rules4() {
+
+  ## Base configuration for the system. This will permit later rules to
+  #  be added without having any interferance with functionality.
+
+  ${ipv4} -P OUTPUT DROP
+
+  ## fiendtlig-territorium specific tables.
+  # -- raw --------------------------------------------------------------------
+  # -- mangle -----------------------------------------------------------------
+  # -- nat --------------------------------------------------------------------
+  # -- filter -----------------------------------------------------------------
+  ${ipv4} -N filter-oLAR4
+  ${ipv4} -A filter-oLAR4 -j LOG --log-prefix 'ipt: filter ADMIN-DROP' --log-prefix 4
+  ${ipv4} -A filter-oLAR4 -j REJECT --reject-with icmp-host-unreachable
+
+  ${ipv4} -N filter-oEST4
+  # Note: The posture 'paranoid' inserts a clustered ipset for whitelist here
+  #       The accept rule will also be changed to DROP
+  ${ipv4} -A filter-oEST4 -j ACCEPT
+
+  ${ipv4} -N filter-oTCP4
+  # Note: The posture 'paranoid' will insert a whitelist filter here
+  ${ipv4} -A filter-oTCP4 -p tcp -j ACCEPT
+
+  ${ipv4} -N filter-oUDP4
+  # Note: The posture 'paranoid' will insert a whitelist filtere here
+  ${ipv4} -A filter-oUDP4 -p udp -j ACCEPT
+  # -- security ---------------------------------------------------------------
+
+  # == PRETROUTING ============================================================
+  # -- raw, mangle, nat -------------------------------------------------------
+  # == INPUT ==================================================================
+  # -- mangle, nat, filter, security ------------------------------------------
+  # == FORWARD ================================================================
+  # -- mangle, filter, security -----------------------------------------------
+  # == OUTPUT =================================================================
+  # -- raw, mangle, nat, filter, security -------------------------------------
+  ${ipv4} -A OUTPUT -o lo -j ACCEPT
+  # Note: The following blacklist is standardized from posture 'medium' and up.
+  ${ipv4} -A OUTPUT -m set --match-set blacklist dst -j filter-oEST4
+  ${ipv4} -A OUTPUT -m conntrack --ctstate RELATED,ESTABLISHED -j filter-oEST4
+  ${ipv4} -A OUTPUT -p tcp -j filter-oTCP4
+  ${ipv4} -A OUTPUT -p udp -j filter-oUDP4
+  ${ipv4} -A OUTPUT -p icmp -j ACCEPT
+  ${ipv4} -A OUTPUT -j filter-oLAR4
+  # == POSTROUTING ============================================================
+  # -- mangle, nat ------------------------------------------------------------
+
+}

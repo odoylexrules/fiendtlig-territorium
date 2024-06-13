@@ -1,0 +1,140 @@
+#! /bin/bash --
+# /usr/local/sbin/start-firewall
+# odoylexrules
+# June 13, 2024
+
+
+# Source the developers file.
+source /usr/local/include/fiendtlig/territorium.var
+
+# Source the local admins configuration file
+source ${etc_file}
+
+# Assign a numeral value for posture to peform hooking conditions
+if [ "${posture}" = 'paranoid' ]; then
+  stance='4'
+elif [ "${posture}" = 'high' ]; then
+  stance='2'
+elif [ "${posture}" = 'medium' ]; then
+  stance='1'
+else
+  # Assuming posture is 'low'
+  stance='0'
+fi
+
+# clear any running firewall off the table.
+flush_rules6
+
+# Test sysctl configuration for availability of IPv6, and execute accordingly.
+if test_v6; then
+
+  # Pull inbound rules
+  source ${core6_in}
+
+  # Pull outbound rules if applicable
+  # Asserting server rules
+  if (( ${stance} >= '2' )); then
+
+    source ${core6_out}
+    ocore_rules6
+    # Postured rules
+
+    
+    nat6_nets=(
+      "$( ls ${nat_dir} | grep -v 'README' | grep 'nat' | grep 'v6' )"
+    )
+    dmz6_hosts=(
+      "$( ls ${nat_dir} | grep -v 'README' | grep 'dmz' | grep 'v6' )"
+    )
+
+    if [ ! -z ${nat6_nets} ] || [ ! -z ${dmz6_hosts} ]; then
+
+      ${ipv4} -A FORWARD -j REJECT
+
+      [ ! -z ${nat6_nets} ] && {
+
+        ${ipv6} -N fw6-interfaces
+        ${ipv6} -I FORWARD -j fw6-interfaces
+
+        for config in ${nat6_nets[@]}; do
+
+          source ${nat_dir}/${config}
+          nat_rules6
+
+        done
+
+      }
+      [ ! -z ${dmz6_hosts} ] && {
+
+        ${ipv6} -N fw6-open
+        ${ipv6} -I FORWARD -j fw6-open
+
+        for config in ${dmz6_hosts[@]}; do
+
+          source ${nat_dir}/${config}
+          dmz_rules6
+
+        done
+
+      }
+
+    fi
+
+    ${ipv6} -I FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+    sysctl -w net.ipv6.conf.all.forwarding=1
+
+    # Apply rules for services.
+    for ff_file in ${roles_dir}/*; do
+
+      source ${ff_file}
+
+    done
+    # Relying on unsetting of all functions for this to work properly.
+    for funct in "$( compgen -A function | grep fiendtlig_ )" do
+
+      [ ! -z ${funct} ] && ${funct}
+
+    done
+
+  # Asserting Desktop rules
+  elif (( ${stance} == '1' )); then
+
+    source ${core6_out}
+    ocore_rules6
+    # Postured rules
+
+  fi
+
+else
+
+  # Restricting IPv6 to DROP anything with the exception of testing if you
+  # are using IPv6 for loopback.
+  disable_rules6
+
+fi
+
+# Clearing any running firewall off the table
+flush_rules4
+
+# Test admin definition of IPv4 policy
+if test_v4; then
+
+  # Pull inbound rules
+  source ${core4_in}
+
+  # Pull outbound rules if applicable
+  if (( ${stance} -ge '2' )); then
+
+    source ${core4_out}
+
+  elif (( ${stance} == '1' )); then
+
+  fi
+
+else
+
+  # Restricting IPv4 to DROP anything with the exception of loopback as it's
+  # built-in with IPv4 stack
+  disable_rules4
+
+fi
