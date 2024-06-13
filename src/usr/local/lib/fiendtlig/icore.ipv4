@@ -1,0 +1,165 @@
+icore_rules4() {
+
+  # Base configuration for the suite. This will permit later rules to
+  # be added without having any interference with functionality.
+  ${ipv4} -P INPUT DROP
+  ${ipv4} -P FORWARD DROP
+
+  ## Fiendtlig-territorium specific tables.
+  # -- raw --------------------------------------------------------------------
+  # -- mangle -----------------------------------------------------------------
+  # Throttles logging to prevent log file targetting DDoS attacks.
+  ${man4} -N mangle-iLAD4
+  ${man4} -A mangle-iLAD4 -m limit 10/min \
+   -j LOG --log-prefix 'ipt: mangle DROP: ' --log-level 7
+  ${man4} -A mangle-iLAD4 -j DROP
+
+  # Filter table specifically aimed at TCP based signatures. Found in an
+  # earlier chain in hopes to accelerate performance of denying hastle.
+  ${man4} -N mangle-iTCP4
+  ${man4} -A mangle-iTCP4 -p tcp -m conntrack --ctstate NEW \
+   -m tcpmss ! --mss 536:65535 -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags FIN,SYN FIN,SYN -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags SYN,RST SYN,RST -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags FIN,RST FIN,RST -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags FIN,ACK FIN -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ACK,PSH PSH -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ACK,URG URG -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ALL NONE -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ALL ALL -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ALL URG -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags ALL PSH -j mangle-iLAD4
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags RST RST \
+   -m limit --limit 2/s --limit-burst 2 -j RETURN
+  ${man4} -A mangle-iTCP4 -p tcp --tcp-flags RST RST -j mangle-iLAD4
+
+  # Filter table specifically aimed at UDP based signatures.
+  ${man4} -N mangle-iUDP4
+  ${man4} -A mangle-iUDP4 -p udp -m hashlimit --hashlimit-above 300/second \
+   --hashlimit-mode srcip --hashlimit-name udp_limit -j mangle-iLAD4
+  ${man4} -A mangle-iUDP4 -p dup -m length --length 1221:65535 -j mangle-iLAD4
+
+  # Filter table specifically aimed at ICMP based signatures.
+  ${man4} -N mangle-iICMP4
+  ${man4} -A mangle-iICMP4 -m recent --name icmp_limit --rttl --rcheck \
+   --hitcount 12 --seconds 60 -j DROP
+  ${man4} -A mangle-iICMP4 -m recent --name icmp_limit --rttl --rcheck \
+   --hitcount 1000 --seconds 1800 -j mangle-iLAD4
+  # I'm relying on the admin to disable certain features with the familiar
+  # sysctl configuration file system. ICMP is not evil. So, ... yeah.
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type echo-request \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type echo-reply \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type destination-unreachable \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type time-exceeded \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type redirect \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type router-advertisement \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type router-solicitation \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type timestamp \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type timestamp-reply \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type information-request \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type information-reply \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type mask-request \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -p icmp --icmp-type mask-reply \
+   -m recent --name icmp_limit --set -j ACCEPT
+  ${man4} -A mangle-iICMP4 -j mangle-iLAD4
+
+  # -- nat --------------------------------------------------------------------
+
+  # -- filter -----------------------------------------------------------------
+  # Log And Drop - Designed to prevent log file DoS
+  ${ipv4} -N filter-iLAD4
+  ${ipv4} -A filter-iLAD4 -m limit 10/min \
+   -j LOG --log-prefix 'ipt: filter DROP: ' --log-level 7
+  ${ipv4} -A filter-iLAD4 -j DROP
+
+  # Log And Reject - Designed to prevent log file DoS, as well.
+  ${ipv4} -N filter-iLAR4
+  ${ipv4} -A filter-iLAR4 -m recent --name log_shield --rttl --rcheck \
+   --hitcount 10 --seconds 60 -j filter-iLAD4
+  ${ipv4} -A filter-iLAR4 -m recent --name log_shield --rttl --rcheck \
+   --hitcount 21 --seconds 120 -j filter-iLAD4
+  ${ipv4} -A filter-lLAR4 -m recent --name log_shield \
+   --set -j LOG --log-prefix 'ipt: filter REJECT: ' --log-level 4
+  ${ipv4} -A filter-iLAR4 -p tcp -j REJECT --reject-with tcp-reset
+  ${ipv4} -A filter-iLAR4 -p udp -j REJECT --reject-with icmp-port-unreachable
+  ${ipv4} -A filter-iLAR4 -j REJECT --reject-with icmp-proto-unreachable
+
+  # Permits inclusion of future rules without interfering with basic config
+  ${ipv4} -N filter-iEST4
+  # Note: The posture paranoid will insert a rule at the top to log and
+  #       drop connections matching blacklists here.
+  ${ipv4} -A filter-iEST4 -j ACCEPT
+
+  # Does not allow too many concurrent connections, and resists scanning sigs.
+  # To be added to later for filtering services.
+  ${ipv4} -N filter-iTCP4
+  # Note: The posture 'paranoid' will insert rules for blacklists here
+  ${ipv4} -A filter-iTCP4 -p tcp -m connlimit --connlimit-above 80 \
+   -j filter-iLAR4
+  ${ipv4} -A filter-iTCP4 -p tcp -m recent --name TCP4-PSCAN --update --rsource \
+   --seconds 80 -j filter-iLAR4
+  # Note: The posture 'high' will insert rules for services here.
+
+  # Does not allow scanning signatures to 
+  # To be added to later for filtering services.
+  ${ipv4} -N filter-iUDP4
+  # Note: THe posture 'paranoid' will insert rules for blacklists here
+  ${ipv4} -A filter-iUDP4 -p udp -m recent --name UDP4-PSCAN --update --rsource \
+   --seconds 80 -j filter-iLAR4
+  # Note: The posture 'hih' will insert rules for services here.
+
+  # -- security ---------------------------------------------------------------
+
+  # == PREROUTING =============================================================
+  # -- raw, mangle, nat -------------------------------------------------------
+  # Mutant packet stats to be logged and dropped.
+  ${man4} -A PREROUTING -m conntrack --ctstate INVALID -j mangle-iLAD4
+  # Drop packets for the correct IP, but wrong interface.
+  ${man4} -A PREROUTING -m rpfilter --invert -j mangle-iLAD4
+  # Fragmented packets are not often enough normal to accept normally
+  ${man4} -A PREROUTING -f -j DROP
+  # All udp packets to be filtered for signatures
+  ${man4} -A PREROUTING -p udp -j mangle-iUDP4
+  # All tcp packets to be filtered for signatures
+  ${man4} -A PREROUTING -p tcp -j mangle-iTCP4
+  # Adding before ICMP so that normal ICMP traffic can be filtered correctly.
+  ${man4} -A PREROUTING -p icmp -m conntrack --ctstate RELATED -j ACCEPT
+  ${man4} -A PREROUTING -p icmp -m hashlimit --hashlimit 1/s \
+   --hashlimit-mode srcip --hashlimit-name ICMP -j mangle-iICMP4
+  ${man4} -A PREROUTING -p icmp -j DROP
+  # == INPUT ==================================================================
+  # -- mangle, filter, security -----------------------------------------------
+  ${ipv4} -A INPUT -i lo -j ACCEPT
+  # Note: The posture 'paranoid' will insert a rule here to log and 
+  #       drop blacklists.
+  ${ipv4} -A INPUT -m conntrack --ctstate ESTABLISHED -j filter-iEST4
+  ${ipv4} -A INPUT -p tcp --syn -m conntrack --ctstate NEW \
+   -m limit --limit 60/s --limit-burst 20 -j filter-iTCP4
+  ${ipv4} -A INPUT -p udp -m conntrack --ctstate NEW \
+   -m limit --limit 100/s --limit-burst 100 -j filter-iUDP4
+  ${ipv4} -A INPUT -p icmp -j ACCEPT
+  ${ipv4} -A INPUT -p tcp -m recent --name TCP4-PSCAN --rsource \
+   --set -j filter-iLAR4
+  ${ipv4} -A INPUT -p udp -m recent --name UDP4-PSCAN --rsource \
+   --set -j filter-iLAR4
+  ${ipv4} -A INPUT -j filter-iLAR4
+  # == FORWARD ================================================================
+  # -- mangle, filter, security -----------------------------------------------
+  # == OUTPUT =================================================================
+  # -- raw, mangle, nat, filter, security -------------------------------------
+  # == POSTROUTING ============================================================
+  # -- mangle, nat ------------------------------------------------------------
+
+}

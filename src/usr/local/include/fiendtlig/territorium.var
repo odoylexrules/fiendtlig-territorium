@@ -1,0 +1,183 @@
+## Description: This is sourced by the main script. It provides short hand
+#    variables, key file and directory locations, and rudementary functions.
+## Author: odoylexrules
+## Date: June 13, 2024
+
+
+## Avoiding name collisions(if possible, and command injections):
+#  This loops through and unsets all functions defined in the shell
+for funct in "$( compgen -A function )"; do
+
+  unset -f "${funct}"
+
+done
+
+# Define paths and commands for IPv4 using iptables:
+ipv4="$( command -v iptables )"
+raw4=${ipv4}' -t raw'
+man4=${ipv4}' -t mangle'
+nat4=${ipv4}' -t nat'
+sec4=${ipv4}' -t security'
+
+# Define paths and commands for IPv6 using ip6tables:
+ipv6="$( command -v ip6tables )"
+raw6=${ipv6}' -t raw'
+man6=${ipv6}' -t mangle'
+nat6=${ipv6}' -t nat'
+sec6=${ipv6}' -t security'
+
+etc_dir='/usr/local/etc/fiendtlig'      # Directory for config files.
+etc_file="${etc_dir}/territorium.conf"  # Local admin config file.
+lib_dir='/usr/local/lib/fiendtlig'      # Directory for function libraries
+
+core4_in="${lib_dir}/icore.ipv4"
+core4_out="${lib_dir}/ocore.ipv4"
+
+core6_in="${lib_dir}/icore.ipv6"
+core6_out="${lib_dir}/ocore.ipv6"
+
+roles_dir="${lib_dir}/roles.d"
+nat_dir="${etc_dir}/nat.d"
+
+## There will be additional function libraries in /usr/local/share/fiendtlig
+#  for reference on how to configure custom roles, and other grab bag fun.
+
+## hackles and honches
+#  The following are basic tools required for basic functionality.
+
+## a function to test if IPv4 is disabled by the admin via fiendtlig-territorium
+test_v4() {
+
+  return ${disable_ipv4}
+
+}
+
+## Disables IPv4 traffic leaving loopback clear for operation.
+disable_rules4() {
+
+  ${raw4} -P PREROUTING DROP
+  ${raw4} -P OUTPUT DROP
+
+  ${raw4} -A PREROUTING -i lo -j ACCEPT
+  ${raw4} -A OUTPUT -o lo -j ACCEPT
+
+  ${ipv4} -P INPUT DROP
+  ${ipv4} -P FORWARD DROP
+  ${ipv4} -P OUTPUT DROP
+
+  ${ipv4} -A INPUT -i lo -j ACCEPT
+  ${ipv4} -A OUTPUT -o lo -j ACCEPT
+
+}
+
+## Flushes, and Deletes any previously running firewall for a clean slate.
+flush_rules4() {
+
+  ${raw4} -F; ${raw4} -X
+  ${raw4} -P PREROUTING ACCEPT
+  ${raw4} -P OUTPUT ACCEPT
+
+  ${man4} -F; ${man4} -X
+  ${man4} -P PREROUTING ACCEPT
+  ${man4} -P INPUT ACCEPT
+  ${man4} -P FORWARD ACCEPT
+  ${man4} -P OUTPUT ACCEPT
+  ${man4} -P POSTROUTING ACCEPT
+
+  ${nat4} -F; ${nat4} -X
+  ${nat4} -P PREROUTING ACCEPT
+  ${nat4} -P INPUT ACCEPT
+  ${nat4} -P OUTPUT ACCEPT
+  ${nat4} -P POSTROUTING ACCEPT
+
+  ${ipv4} -F; ${ipv4} -X
+  ${ipv4} -P INPUT ACCEPT
+  ${ipv4} -P FORWARD ACCEPT
+  ${ipv4} -P OUTPUT ACCEPT
+
+  ${sec4} -F; ${sec4} -X
+  ${sec4} -P INPUT ACCEPT
+  ${sec4} -P FORWARD ACCEPT
+  ${sec4} -P OUTPUT ACCEPT
+
+}
+
+## a function to test if IPv6 is disabled by the admin via sysctl.
+test_v6() {
+
+  return "$( sysctl -b netipv6.conf.default.disable_ipv6 )"
+
+}
+
+## Disable IPv6 traffic. Query sysctl for loopback status and apply rules.
+disable_ipv6() {
+
+  ${raw6} -P PREROUTING DROP
+  ${raw6} -P OUTPUT DROP
+
+  ${ipv6} -P INPUT DROP
+  ${ipv6} -P FORWARD DROP
+  ${ipv6} -P OUTPUT DROP
+
+  (( "$( sysctl -b net.ipv6.conf.lo.disable_ipv6 )" = '0' )) && {
+
+    ${raw6} -A PREROUTING -i lo -j ACCEPT
+    ${raw6} -A OUTPUT -o lo -j ACCEPT
+
+    ${ipv6} -A INPUT -i lo -j ACCEPT
+    ${ipv6} -A OUTPUT -o lo -j ACCEPT
+
+  }
+
+}
+
+## Flushes, and Deletes any previously running firewall for a clean slate.
+flush_rules6() {
+
+  ${raw6} -F; ${raw6} -X
+  ${raw6} -P PREROUTING ACCEPT
+  ${raw6} -P OUTPUT ACCEPT
+
+  ${man6} -F; ${man6} -X
+  ${man6} -P PREROUTING ACCEPT
+  ${man6} -P INPUT ACCEPT
+  ${man6} -P FORWARD ACCEPT
+  ${man6} -P OUTPUT ACCEPT
+  ${man6} -P POSTROUTING ACCEPT
+
+  ${nat6} -F; ${nat6} -X
+  ${nat6} -P PREROUTING ACCEPT
+  ${nat6} -P INPUT ACCEPT
+  ${nat6} -P OUTPUT ACCEPT
+  ${nat6} -P POSTROUTING ACCEPT
+
+  ${ipv6} -F; ${ipv6} -X
+  ${ipv6} -P INPUT ACCEPT
+  ${ipv6} -P FORWARD ACCEPT
+  ${ipv6} -P OUTPUT ACCEPT
+
+  ${sec6} -F; ${sec6} -X
+  ${sec6} -P INPUT ACCEPT
+  ${sec6} -P FORWARD ACCEPT
+  ${sec6} -P OUTPUT ACCEPT
+
+}
+
+## A function that it is iterated through a loop to provide NAT networks
+nat_rules4() {
+
+  ${ipv4} -A fw4-interfaces -i ${lan_iface} -j ACCEPT
+  ${nat4} -A POSTROUTING -s ${lan4_netID} -o ${wan_iface} -j MASQUERADE
+
+}
+
+dmz_rules4() {
+
+  ${ipv4} -A fw4-open -d ${target_host} -p ${proto4} \
+   --dport ${target_port} -j ACCEPT
+  ${nat4} -A PREROUTING -i ${wan_iface} -p ${proto4} --dport ${in_port} \
+   -j DNAT --to ${target_host}:${target_port}
+  ${nat4} -A PREROUTING -d ${target_host} --dport ${target_port} \
+   -j SNAT --to-source "$( ip addr show ${wan_iface} | grep 'inet\s' | awk '{print $2}' | awk -F/ '{print $1}' )"
+
+}
